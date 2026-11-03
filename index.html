@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05060a" />
+  <meta name="description" content="Tetris 21 — ett modernt, responsivt Tetris med combo-system, mjuk blockgrafik och syntljud." />
+  <title>Tetris 21 — Neon Edition</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2306080d'/%3E%3Crect x='7' y='7' width='8' height='8' rx='2' fill='%23d9ff46'/%3E%3Crect x='17' y='7' width='8' height='8' rx='2' fill='%235eead4'/%3E%3Crect x='7' y='17' width='8' height='8' rx='2' fill='%238b7bff'/%3E%3Crect x='17' y='17' width='8' height='8' rx='2' fill='%23ffffff' opacity='.14'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="ambient" aria-hidden="true">
+    <span class="orb orb--violet"></span>
+    <span class="orb orb--teal"></span>
+    <span class="orb orb--lime"></span>
+    <div class="ambient-grid"></div>
+    <div class="ambient-vignette"></div>
+  </div>
+
+  <div class="app" id="app" data-state="idle">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <div class="brand-text">
+          <span class="brand-title">TETRIS 21</span>
+          <span class="brand-sub">2D · NEON EDITION</span>
+        </div>
+      </div>
+      <div class="topbar-meta">
+        <div class="record-chip">
+          <span class="record-label">REKORD</span>
+          <strong data-best>0</strong>
+        </div>
+        <button class="icon-btn icon-btn--mobile" id="pauseTopBtn" type="button" aria-pressed="false" aria-label="Pausa spelet" title="Pausa">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.2" /><rect x="13.4" y="5" width="3.6" height="14" rx="1.2" /></svg>
+        </button>
+        <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" aria-label="Stäng av ljud" title="Ljud av/på">
+          <svg class="icon-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z" />
+            <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+            <path d="M18.5 6a9 9 0 0 1 0 12" />
+          </svg>
+          <svg class="icon-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z" />
+            <path d="m16 9 6 6" />
+            <path d="m22 9-6 6" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <aside class="rail rail--left">
+        <section class="panel panel--hold">
+          <div class="panel-head"><span>HÅLL</span><span class="panel-key">C</span></div>
+          <canvas id="holdCanvas" class="preview-canvas" aria-label="Hållen pjäs"></canvas>
+        </section>
+
+        <section class="panel panel--stats">
+          <div class="panel-head"><span>POÄNG</span><span class="live-tag"><span class="live-dot"></span>LIVE</span></div>
+          <div class="score" data-score>0</div>
+          <div class="stat-grid">
+            <div class="stat">
+              <span class="stat-label">NIVÅ</span>
+              <span class="stat-value" data-level>1</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">RADER</span>
+              <span class="stat-value" data-lines>0</span>
+            </div>
+          </div>
+          <div class="stat-best">
+            <span>PERSONBÄSTA</span>
+            <strong data-best>0</strong>
+          </div>
+        </section>
+        <section class="panel panel--run">
+          <div class="panel-head"><span>RUNDSTATISTIK</span></div>
+          <div class="mini-stats">
+            <div class="mini-stat"><span>PJÄSER</span><strong data-pieces>0</strong></div>
+            <div class="mini-stat"><span>T-SPINS</span><strong data-tspins>0</strong></div>
+            <div class="mini-stat"><span>MAX COMBO</span><strong data-max-combo>—</strong></div>
+            <div class="mini-stat"><span>PPS</span><strong data-pps>0,0 /s</strong></div>
+          </div>
+          <div class="stat-best run-time">
+            <span>TID</span>
+            <strong data-time>0:00</strong>
+          </div>
+        </section>
+      </aside>
+
+      <section class="arena" aria-label="Spelplan">
+        <div class="arena-head">
+          <div class="arena-metric">
+            <span class="arena-label">POÄNG</span>
+            <strong data-score>0</strong>
+          </div>
+          <div class="arena-tags">
+            <span class="tag">NIVÅ <b data-level>1</b></span>
+            <span class="tag">RADER <b data-lines>0</b></span>
+          </div>
+        </div>
+
+        <div class="board-frame">
+          <div class="board-glow" aria-hidden="true"></div>
+          <div class="board-viewport" id="boardViewport">
+            <canvas id="board" aria-label="Tetris 21-spelplan"></canvas>
+
+            <div class="screen screen--start" id="startScreen">
+              <div class="screen-inner">
+                <p class="eyebrow"><span class="eyebrow-dot"></span>KLASSIKERN, OMLADD</p>
+                <h1 class="hero-title">TETRIS&nbsp;21<span class="hero-dot">.</span></h1>
+                <p class="hero-copy">Rensa raderna. Höj tempot.<br />Slå ditt eget rekord.</p>
+                <button class="btn btn--primary" id="startBtn" type="button">
+                  <span>Starta spelet</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></svg>
+                </button>
+                <p class="hero-hint">Tryck <kbd>Enter</kbd> eller klicka för att börja</p>
+                <p class="start-best">REKORD <strong data-best>0</strong></p>
+              </div>
+            </div>
+
+            <div class="screen screen--pause" id="pauseScreen" hidden>
+              <div class="screen-inner screen-inner--compact">
+                <p class="eyebrow">TA EN PAUS</p>
+                <h2 class="screen-title">PAUS</h2>
+                <p class="hero-copy">Andas ut. Nästa pjäs väntar.</p>
+                <button class="btn btn--primary" id="resumeBtn" type="button">Fortsätt</button>
+                <p class="hero-hint">Tryck <kbd>P</kbd> eller <kbd>Esc</kbd> för att återuppta</p>
+              </div>
+            </div>
+
+            <div class="screen screen--over" id="overScreen" hidden>
+              <div class="screen-inner">
+                <p class="eyebrow">RUNDAN ÄR SLUT</p>
+                <h2 class="screen-title">GAME OVER</h2>
+                <div class="result-grid">
+                  <div><span>POÄNG</span><strong data-final-score>0</strong></div>
+                  <div><span>RADER</span><strong data-final-lines>0</strong></div>
+                  <div><span>NIVÅ</span><strong data-final-level>1</strong></div>
+                  <div><span>TID</span><strong data-final-time>0:00</strong></div>
+                  <div><span>PPS</span><strong data-final-pps>0,0 /s</strong></div>
+                  <div><span>T-SPINS</span><strong data-final-tspins>0</strong></div>
+                </div>
+                <p class="best-line" id="bestLine">Rekord: 0</p>
+                <button class="btn btn--primary" id="againBtn" type="button">Spela igen</button>
+                <p class="hero-hint">Tryck <kbd>Enter</kbd> för ny runda</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="rail rail--right">
+        <section class="panel panel--next">
+          <div class="panel-head"><span>NÄSTA</span><span class="panel-key">3</span></div>
+          <div class="next-list">
+            <div class="next-item"><canvas class="next-canvas" aria-label="Nästa pjäs, första"></canvas></div>
+            <div class="next-item"><canvas class="next-canvas" aria-label="Nästa pjäs, andra"></canvas></div>
+            <div class="next-item"><canvas class="next-canvas" aria-label="Nästa pjäs, tredje"></canvas></div>
+          </div>
+        </section>
+
+        <section class="panel panel--actions">
+          <button class="btn btn--ghost" id="pauseBtn" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.2" /><rect x="13.4" y="5" width="3.6" height="14" rx="1.2" /></svg>
+            <span>Pausa</span>
+          </button>
+          <button class="btn btn--ghost" id="restartBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v5h5" /></svg>
+            <span>Ny runda</span>
+          </button>
+        </section>
+
+        <section class="panel panel--controls">
+          <div class="panel-head"><span>KONTROLL</span></div>
+          <ul class="key-list">
+            <li><span>Flytta</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></li>
+            <li><span>Rotera</span><span class="keys"><kbd>↑</kbd><kbd>Z</kbd></span></li>
+            <li><span>Mjukdrop</span><span class="keys"><kbd>↓</kbd></span></li>
+            <li><span>Hårddrop</span><span class="keys"><kbd class="kbd-wide">Space</kbd></span></li>
+            <li><span>Håll</span><span class="keys"><kbd>C</kbd></span></li>
+            <li><span>Paus</span><span class="keys"><kbd>P</kbd></span></li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+
+    <section class="touchpad" aria-label="Touchkontroller">
+      <button class="touch-btn touch-btn--hold" data-touch="hold" type="button" aria-label="Håll pjäs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="5.5" height="12" rx="1.6" /><rect x="14.5" y="6" width="5.5" height="12" rx="1.6" /></svg>
+        <span>HÅLL</span>
+      </button>
+      <button class="touch-btn touch-btn--accent" data-touch="rotate" type="button" aria-label="Rotera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.4-5.7" /><path d="M20 4v6h-6" /></svg>
+        <span>ROTERA</span>
+      </button>
+      <button class="touch-btn touch-btn--hold" data-touch="drop" type="button" aria-label="Hård drop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+        <span>DROP</span>
+      </button>
+      <button class="touch-btn" data-touch="left" type="button" aria-label="Flytta vänster">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+      </button>
+      <button class="touch-btn" data-touch="down" type="button" aria-label="Mjukdrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      <button class="touch-btn" data-touch="right" type="button" aria-label="Flytta höger">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+      </button>
+    </section>
+
+    <footer class="footer">
+      <p class="footer-hint">
+        <kbd>←</kbd><kbd>→</kbd> flytta
+        <span class="dot-sep">·</span><kbd>↑</kbd> rotera
+        <span class="dot-sep">·</span><kbd>Space</kbd> hårddrop
+        <span class="dot-sep">·</span><kbd>C</kbd> håll
+        <span class="dot-sep">·</span><kbd>P</kbd> paus
+      </p>
+      <p class="footer-brand">TETRIS 21 <span>— byggd för tangentbord &amp; touch</span></p>
+    </footer>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

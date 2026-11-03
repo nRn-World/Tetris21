@@ -1,0 +1,5 @@
+.freebuff/
+.smoke-test.mjs
+*.log
+.DS_Store
+Thumbs.db
