@@ -23,7 +23,12 @@ const pauseBtn = $("#pauseBtn");
 const pauseTopBtn = $("#pauseTopBtn");
 const restartBtn = $("#restartBtn");
 const soundBtn = $("#soundBtn");
-const fullscreenBtn = $("#fullscreenBtn");
+const infoBtn = $("#infoBtn");
+const startInfoBtn = $("#startInfoBtn");
+const infoModal = $("#infoModal");
+const infoCloseBtn = $("#infoCloseBtn");
+const infoCloseTopBtn = $("#infoCloseTopBtn");
+const holdPanel = $(".panel--hold");
 const stage = $(".stage");
 const arena = $(".arena");
 const arenaHead = $(".arena-head");
@@ -73,6 +78,8 @@ let softTimer = 0;
 
 let dangerActive = false;
 let dangerTimer = 1200;
+let infoOpen = false;
+let pausedByInfo = false;
 
 const hudCache = {
   score: null,
@@ -200,7 +207,7 @@ function syncState() {
   if (engine.state !== "playing") cancelGesture();
 
   startScreen.hidden = engine.state !== "idle";
-  pauseScreen.hidden = engine.state !== "paused";
+  pauseScreen.hidden = engine.state !== "paused" || infoOpen;
   overScreen.hidden = engine.state !== "gameover";
 
   const paused = engine.state === "paused";
@@ -249,7 +256,47 @@ function resetInput() {
   cancelGesture();
 }
 
+function openInfo() {
+  if (infoOpen) return;
+  infoOpen = true;
+  if (engine.state === "playing") {
+    pausedByInfo = true;
+    engine.pause();
+    resetInput();
+  } else {
+    pausedByInfo = false;
+  }
+  if (infoModal) infoModal.hidden = false;
+  if (pauseScreen) pauseScreen.hidden = true;
+  infoBtn?.setAttribute("aria-expanded", "true");
+}
+
+function closeInfo() {
+  if (!infoOpen) return;
+  infoOpen = false;
+  if (infoModal) infoModal.hidden = true;
+  infoBtn?.setAttribute("aria-expanded", "false");
+  if (pausedByInfo && engine.state === "paused") {
+    pausedByInfo = false;
+    engine.resume();
+  } else {
+    pausedByInfo = false;
+    syncState();
+  }
+}
+
+function toggleInfo() {
+  if (infoOpen) closeInfo();
+  else openInfo();
+}
+
 function startGame() {
+  if (infoOpen) {
+    infoOpen = false;
+    pausedByInfo = false;
+    if (infoModal) infoModal.hidden = true;
+    infoBtn?.setAttribute("aria-expanded", "false");
+  }
   sound.ensure();
   resetInput();
   renderer.reset();
@@ -260,10 +307,14 @@ function startGame() {
   if (boardFrame) boardFrame.dataset.danger = "";
   app.dataset.combo = "0";
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  maybeAutoFullscreen();
+  scheduleFit();
 }
 
 function togglePause() {
+  if (infoOpen) {
+    closeInfo();
+    return;
+  }
   if (engine.state === "playing") {
     engine.pause();
     resetInput();
@@ -272,20 +323,25 @@ function togglePause() {
   }
 }
 
-/* ---------- mobil: helskärm & spelplan som fyller skärmen ---------- */
+/* ---------- mobil: spelplan som passar synlig skärmhöjd ---------- */
 
 const mobileMedia = window.matchMedia("(max-width: 900px)");
-const coarsePointer = window.matchMedia("(pointer: coarse)");
-const canFullscreen = typeof document.documentElement.requestFullscreen === "function";
-
-let autoFullscreenTried = false;
 
 function fitMobileBoard() {
   if (!mobileMedia.matches) {
+    app.style.removeProperty("--app-h");
     app.style.removeProperty("--board-h");
     return;
   }
   if (!stage || !arena || !arenaHead || !boardFrame) return;
+
+  const vh = window.visualViewport?.height || window.innerHeight;
+  if (vh > 0) {
+    app.style.setProperty("--app-h", `${Math.round(vh)}px`);
+  }
+
+  // Nollställ tillfälligt så spelplanen inte låser höjden vid krympande vy.
+  app.style.setProperty("--board-h", "150px");
 
   const arenaRect = arena.getBoundingClientRect();
   const headRect = arenaHead.getBoundingClientRect();
@@ -294,7 +350,7 @@ function fitMobileBoard() {
   const framePad =
     parseFloat(window.getComputedStyle(boardFrame).getPropertyValue("--frame-pad")) || 9;
 
-  const availableHeight = arenaRect.height - headRect.height - gap - 2;
+  const availableHeight = arenaRect.height - headRect.height - gap - 6;
   const availableWidth = stageRect.width - 2;
   if (availableHeight < 80 || availableWidth < 80) return;
 
@@ -308,63 +364,10 @@ function scheduleFit() {
   window.requestAnimationFrame(fitMobileBoard);
 }
 
-function isFullscreen() {
-  return Boolean(document.fullscreenElement);
-}
-
-function syncFullscreenButton() {
-  if (!fullscreenBtn) return;
-  const supported = canFullscreen && (mobileMedia.matches || coarsePointer.matches);
-  fullscreenBtn.hidden = !supported;
-  if (!supported) return;
-
-  const active = isFullscreen();
-  fullscreenBtn.classList.toggle("is-fullscreen", active);
-  fullscreenBtn.setAttribute("aria-pressed", String(active));
-  fullscreenBtn.setAttribute("aria-label", active ? "Lämna helskärm" : "Helskärm");
-  fullscreenBtn.title = active ? "Lämna helskärm" : "Helskärm";
-}
-
-async function enterFullscreen() {
-  if (!canFullscreen || isFullscreen()) return;
-  try {
-    await document.documentElement.requestFullscreen({ navigationUI: "hide" });
-  } catch {
-    /* Vissa webbläsare (t.ex. iOS) tillåter inte helskärm – spelet fungerar ändå. */
-    return;
-  }
-}
-
-function exitFullscreen() {
-  if (!isFullscreen()) return;
-  document.exitFullscreen?.().catch(() => {});
-}
-
-function toggleFullscreen() {
-  if (isFullscreen()) exitFullscreen();
-  else enterFullscreen();
-}
-
-function maybeAutoFullscreen() {
-  if (autoFullscreenTried) return;
-  autoFullscreenTried = true;
-  if (!mobileMedia.matches || !coarsePointer.matches) return;
-  enterFullscreen();
-}
-
-mobileMedia.addEventListener?.("change", () => {
-  scheduleFit();
-  syncFullscreenButton();
-});
+mobileMedia.addEventListener?.("change", scheduleFit);
 window.addEventListener("resize", scheduleFit);
 window.addEventListener("orientationchange", () => window.setTimeout(scheduleFit, 160));
 window.visualViewport?.addEventListener("resize", scheduleFit);
-document.addEventListener("fullscreenchange", () => {
-  syncFullscreenButton();
-  scheduleFit();
-});
-
-fullscreenBtn?.addEventListener("click", toggleFullscreen);
 
 function tryMove(dir) {
   if (engine.state !== "playing") return false;
@@ -508,7 +511,23 @@ window.addEventListener("keydown", (event) => {
   const key = event.key;
   const gameKeys = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "];
 
+  if (infoOpen) {
+    if (key === "Escape" || key === "Enter" || key === "i" || key === "I") {
+      event.preventDefault();
+      closeInfo();
+    }
+    return;
+  }
+
   if (gameKeys.includes(key)) event.preventDefault();
+
+  if (key === "i" || key === "I") {
+    if (!event.repeat) {
+      event.preventDefault();
+      openInfo();
+    }
+    return;
+  }
 
   if (key === "Enter") {
     const activeEl = document.activeElement;
@@ -633,6 +652,23 @@ soundBtn.addEventListener("click", () => {
   sound.toggle();
   renderSoundButton();
 });
+infoBtn?.addEventListener("click", toggleInfo);
+startInfoBtn?.addEventListener("click", openInfo);
+infoCloseBtn?.addEventListener("click", closeInfo);
+infoCloseTopBtn?.addEventListener("click", closeInfo);
+infoModal?.addEventListener("click", (event) => {
+  if (event.target === infoModal) closeInfo();
+});
+
+if (holdPanel) {
+  holdPanel.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (engine.state !== "playing" || infoOpen) return;
+    event.preventDefault();
+    sound.ensure();
+    tryHold();
+  });
+}
 
 /* ---------- touch ---------- */
 
@@ -713,12 +749,12 @@ function cancelGesture() {
 
 function onGestureStart(event) {
   if (event.pointerType === "mouse" && event.button !== 0) return;
-  if (engine.state !== "playing") return;
+  if (engine.state !== "playing" || infoOpen) return;
   if (gesturePointer !== null) return;
   if (!(event.target instanceof Element)) return;
   if (
     event.target.closest(
-      ".screen, .topbar, .touchpad, .panel--actions, .panel--controls, .footer, button, a"
+      ".info-modal, .screen, .topbar, .touchpad, .panel--hold, .panel--actions, .panel--controls, .footer, button, a"
     )
   ) {
     return;
@@ -836,7 +872,6 @@ if (arena) {
 renderSoundButton();
 renderHud(true);
 syncState();
-syncFullscreenButton();
 scheduleFit();
 window.setTimeout(scheduleFit, 260);
 window.addEventListener("load", scheduleFit);
