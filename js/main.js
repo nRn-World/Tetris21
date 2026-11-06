@@ -198,7 +198,6 @@ function updateDanger() {
 function syncState() {
   app.dataset.state = engine.state;
   if (engine.state !== "playing") cancelGesture();
-  lastTap.time = 0;
 
   startScreen.hidden = engine.state !== "idle";
   pauseScreen.hidden = engine.state !== "paused";
@@ -681,15 +680,14 @@ if (touchpad) {
 
 /* ---------- svepgester på spelplanen ---------- */
 
-const TAP_MAX_DISTANCE = 12; // px – räknas fortfarande som ett tryck
-const TAP_MAX_MS = 280;
-const DOUBLE_TAP_MS = 320;
-const DOUBLE_TAP_DISTANCE = 36;
-const HARD_DROP_SWIPE = 46; // px uppåt innan pjäsen släpps
+const TAP_MAX_DISTANCE = 12; // px – räknas fortfarande som ett tryck/klick
+const TAP_MAX_MS = 400;
+const HARD_DROP_SWIPE = 46; // px nedåt innan pjäsen släpps direkt
+const SHORT_DROP_SWIPE = 28; // px för kort, snabbt svep nedåt
+const SHORT_DROP_MAX_MS = 240;
 
 let gesturePointer = null;
 let gesture = null;
-let lastTap = { time: 0, x: 0, y: 0 };
 
 function buzz(pattern) {
   if (typeof navigator.vibrate !== "function") return;
@@ -714,25 +712,24 @@ function cancelGesture() {
 }
 
 function onGestureStart(event) {
-  if (event.pointerType === "mouse") return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
   if (engine.state !== "playing") return;
   if (gesturePointer !== null) return;
   if (!(event.target instanceof Element)) return;
   if (event.target.closest(".screen, button, a")) return;
 
-  const { cellW, cellH } = boardCellSize();
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const { cellW } = boardCellSize();
 
   gesturePointer = event.pointerId;
   gesture = {
     startX: event.clientX,
     startY: event.clientY,
     anchorX: event.clientX,
-    anchorY: event.clientY,
+    dropAnchorY: event.clientY,
     startedAt: performance.now(),
-    startedLow: event.clientY > viewportHeight * 0.42,
     stepW: Math.max(13, cellW * 0.6),
-    stepH: Math.max(11, cellH * 0.85),
+    moved: false,
+    movedX: false,
     done: false,
   };
 
@@ -741,42 +738,54 @@ function onGestureStart(event) {
   } catch {
     /* ignorera – svepen fungerar även utan pointer capture */
   }
-  if (event.cancelable) event.preventDefault();
+  if (event.pointerType !== "mouse" && event.cancelable) event.preventDefault();
 }
 
 function onGestureMove(event) {
   if (!gesture || event.pointerId !== gesturePointer) return;
   if (gesture.done) return;
 
-  // Svep uppåt från skärmens nedre del = hårddrop.
-  const upward = gesture.startY - event.clientY;
-  if (gesture.startedLow && upward >= HARD_DROP_SWIPE) {
+  const totalDx = event.clientX - gesture.startX;
+  const totalDy = event.clientY - gesture.startY;
+  if (!gesture.moved && Math.hypot(totalDx, totalDy) > TAP_MAX_DISTANCE) {
+    gesture.moved = true;
+  }
+
+  const dx = event.clientX - gesture.anchorX;
+  const downward = event.clientY - gesture.dropAnchorY;
+
+  // Svep nedåt = hårddrop.
+  if (downward >= HARD_DROP_SWIPE && downward > Math.abs(dx)) {
     gesture.done = true;
     tryHardDrop();
     buzz(14);
     return;
   }
 
+  // Ignorera små sidoförskjutningar mitt i ett brant lodrätt svep.
+  const verticalSwipe = Math.abs(downward) > 18 && Math.abs(downward) > Math.abs(dx) * 1.5;
+
   // Vågrät svepning: flytta pjäsen ett steg per cellbredd.
-  const stepsX = Math.trunc((event.clientX - gesture.anchorX) / gesture.stepW);
-  if (stepsX !== 0) {
-    const dir = stepsX > 0 ? 1 : -1;
-    for (let i = 0; i < Math.abs(stepsX); i += 1) {
-      if (!tryMove(dir)) break;
+  if (!verticalSwipe) {
+    const stepsX = Math.trunc(dx / gesture.stepW);
+    if (stepsX !== 0) {
+      const dir = stepsX > 0 ? 1 : -1;
+      for (let i = 0; i < Math.abs(stepsX); i += 1) {
+        if (!tryMove(dir)) break;
+      }
+      gesture.anchorX += stepsX * gesture.stepW;
+      gesture.dropAnchorY = event.clientY;
+      gesture.moved = true;
+      gesture.movedX = true;
     }
-    gesture.anchorX += stepsX * gesture.stepW;
   }
 
-  // Lodrät svepning nedåt: mjukdrop, ett steg per cellhöjd.
-  const stepsY = Math.floor((event.clientY - gesture.anchorY) / gesture.stepH);
-  if (stepsY > 0) {
-    for (let i = 0; i < stepsY; i += 1) {
-      if (!engine.softDrop()) break;
-    }
-    gesture.anchorY += stepsY * gesture.stepH;
+  // Följ med om fingret förs uppåt så ett efterföljande svep nedåt reagerar direkt.
+  if (event.clientY < gesture.dropAnchorY) {
+    gesture.dropAnchorY = event.clientY;
   }
 
-  if (event.cancelable) event.preventDefault();
+  if (event.pointerType !== "mouse" && event.cancelable) event.preventDefault();
 }
 
 function onGestureEnd(event) {
@@ -786,28 +795,33 @@ function onGestureEnd(event) {
   if (!finished || finished.done) return;
 
   const duration = performance.now() - finished.startedAt;
-  const distance = Math.hypot(event.clientX - finished.startX, event.clientY - finished.startY);
-  if (distance > TAP_MAX_DISTANCE || duration > TAP_MAX_MS) return;
+  const totalDx = event.clientX - finished.startX;
+  const totalDy = event.clientY - finished.startY;
+  const distance = Math.hypot(totalDx, totalDy);
 
-  // Dubbeltryck = rotera pjäsen.
-  const now = performance.now();
-  const isDoubleTap =
-    now - lastTap.time <= DOUBLE_TAP_MS &&
-    Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) <= DOUBLE_TAP_DISTANCE;
-
-  if (isDoubleTap) {
-    lastTap.time = 0;
-    if (tryRotate(1)) buzz(9);
-  } else {
-    lastTap = { time: now, x: event.clientX, y: event.clientY };
+  // Kort, snabbt svep nedåt = hårddrop.
+  if (
+    !finished.movedX &&
+    totalDy >= SHORT_DROP_SWIPE &&
+    totalDy > Math.abs(totalDx) * 1.5 &&
+    duration <= SHORT_DROP_MAX_MS
+  ) {
+    tryHardDrop();
+    buzz(14);
+    return;
   }
+
+  if (finished.moved || distance > TAP_MAX_DISTANCE || duration > TAP_MAX_MS) return;
+
+  // Enkelt klick/tryck = rotera pjäsen.
+  if (tryRotate(1)) buzz(9);
 }
 
 if (arena) {
   arena.addEventListener("pointerdown", onGestureStart);
   arena.addEventListener("pointermove", onGestureMove);
   arena.addEventListener("pointerup", onGestureEnd);
-  arena.addEventListener("pointercancel", onGestureEnd);
+  arena.addEventListener("pointercancel", cancelGesture);
   arena.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
