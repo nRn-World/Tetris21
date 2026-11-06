@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=4" />
 </head>
 <body>
   <div class="ambient" aria-hidden="true">
@@ -35,9 +35,12 @@
           <span class="record-label">REKORD</span>
           <strong data-best>0</strong>
         </div>
-        <button class="icon-btn icon-btn--mobile" id="fullscreenBtn" type="button" aria-pressed="false" aria-label="Helskärm" title="Helskärm">
-          <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
-          <svg class="icon-shrink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h3a2 2 0 0 0 2-2V3" /><path d="M21 8h-3a2 2 0 0 1-2-2V3" /><path d="M3 16h3a2 2 0 0 1 2 2v3" /><path d="M21 16h-3a2 2 0 0 0-2 2v3" /></svg>
+        <button class="icon-btn" id="infoBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Så spelar du" title="Så spelar du">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5" />
+            <circle cx="12" cy="7.8" r="0.65" fill="currentColor" stroke="none" />
+          </svg>
         </button>
         <button class="icon-btn icon-btn--mobile" id="pauseTopBtn" type="button" aria-pressed="false" aria-label="Pausa spelet" title="Pausa">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.2" /><rect x="13.4" y="5" width="3.6" height="14" rx="1.2" /></svg>
@@ -123,8 +126,15 @@
                   <span>Starta spelet</span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></svg>
                 </button>
+                <button class="btn btn--ghost btn--info-start" id="startInfoBtn" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 11v5" />
+                    <circle cx="12" cy="7.8" r="0.65" fill="currentColor" stroke="none" />
+                  </svg>
+                  <span>Så spelar du</span>
+                </button>
                 <p class="hero-hint">Tryck <kbd>Enter</kbd> eller klicka för att börja</p>
-                <p class="hero-hint hero-hint--touch">Svep för att flytta · tryck för att rotera</p>
                 <p class="start-best">REKORD <strong data-best>0</strong></p>
               </div>
             </div>
@@ -195,18 +205,6 @@
       </aside>
     </main>
 
-    <section class="gesture-bar" aria-label="Svepgester">
-      <button class="touch-btn gesture-hold" data-touch="hold" type="button" aria-label="Håll pjäs">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="5.5" height="12" rx="1.6" /><rect x="14.5" y="6" width="5.5" height="12" rx="1.6" /></svg>
-        <span>HÅLL</span>
-      </button>
-      <p class="gesture-hint">
-        <span><b>↔ svep</b> flytta</span>
-        <span><b>⟳ tryck</b> rotera</span>
-        <span><b>↓ svep ner</b> släpp</span>
-      </p>
-    </section>
-
     <section class="touchpad" aria-label="Touchkontroller">
       <button class="touch-btn touch-btn--hold" data-touch="hold" type="button" aria-label="Håll pjäs">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="5.5" height="12" rx="1.6" /><rect x="14.5" y="6" width="5.5" height="12" rx="1.6" /></svg>
@@ -243,6 +241,49 @@
     </footer>
   </div>
 
-  <script type="module" src="js/main.js?v=3"></script>
+  <div class="info-modal" id="infoModal" role="dialog" aria-modal="true" aria-labelledby="infoTitle" hidden>
+    <div class="info-card">
+      <div class="info-card__head">
+        <div>
+          <p class="eyebrow"><span class="eyebrow-dot"></span>SPELGUIDE</p>
+          <h2 class="info-title" id="infoTitle">Så spelar du</h2>
+        </div>
+        <button class="icon-btn info-close-icon" id="infoCloseTopBtn" type="button" aria-label="Stäng spelguide">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <p class="info-lead">
+        Placera blocken och fyll hela vågräta rader för att rensa dem och samla poäng. Tempot ökar med varje nivå — rundan är slut när stapeln når toppen.
+      </p>
+
+      <div class="info-section">
+        <h3 class="info-heading">PEKSKÄRM / MOBIL</h3>
+        <ul class="key-list info-list">
+          <li><span>Rotera block</span><span class="info-badge">Tryck på skärmen</span></li>
+          <li><span>Flytta i sidled</span><span class="info-badge">Svep ← / →</span></li>
+          <li><span>Släpp ner snabbt</span><span class="info-badge">Svep nedåt ↓</span></li>
+          <li><span>Spara / byt block</span><span class="info-badge">Tryck på HÅLL</span></li>
+        </ul>
+      </div>
+
+      <div class="info-section">
+        <h3 class="info-heading">TANGENTBORD / MUS</h3>
+        <ul class="key-list info-list">
+          <li><span>Flytta</span><span class="keys"><kbd>←</kbd><kbd>→</kbd></span></li>
+          <li><span>Rotera</span><span class="keys"><kbd>↑</kbd><kbd>Z</kbd><span class="info-or">/ klick</span></span></li>
+          <li><span>Mjukdrop / Hårddrop</span><span class="keys"><kbd>↓</kbd><kbd class="kbd-wide">Space</kbd></span></li>
+          <li><span>Håll / Pausa</span><span class="keys"><kbd>C</kbd><kbd>P</kbd></span></li>
+        </ul>
+      </div>
+
+      <button class="btn btn--primary info-done-btn" id="infoCloseBtn" type="button">Stäng</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js?v=4"></script>
 </body>
 </html>
