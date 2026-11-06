@@ -1124,6 +1124,7 @@ kbd {
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
+    touch-action: none;
   }
 
   .hero-hint {
@@ -1288,6 +1289,7 @@ kbd {
     gap: 12px;
     flex: none;
     padding: 2px 2px 0;
+    touch-action: none;
   }
 
   .gesture-bar .gesture-hold {

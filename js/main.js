@@ -680,11 +680,11 @@ if (touchpad) {
 
 /* ---------- svepgester på spelplanen ---------- */
 
-const TAP_MAX_DISTANCE = 12; // px – räknas fortfarande som ett tryck/klick
-const TAP_MAX_MS = 400;
-const HARD_DROP_SWIPE = 46; // px nedåt innan pjäsen släpps direkt
-const SHORT_DROP_SWIPE = 28; // px för kort, snabbt svep nedåt
-const SHORT_DROP_MAX_MS = 240;
+const TAP_MAX_DISTANCE = 22; // px – räknas fortfarande som ett enkelt klick/tryck
+const TAP_MAX_MS = 450;
+const HARD_DROP_SWIPE = 40; // px nedåt innan pjäsen släpps direkt
+const SHORT_DROP_SWIPE = 26; // px för kort, snabbt svep nedåt
+const SHORT_DROP_MAX_MS = 260;
 
 let gesturePointer = null;
 let gesture = null;
@@ -716,8 +716,15 @@ function onGestureStart(event) {
   if (engine.state !== "playing") return;
   if (gesturePointer !== null) return;
   if (!(event.target instanceof Element)) return;
-  if (event.target.closest(".screen, button, a")) return;
+  if (
+    event.target.closest(
+      ".screen, .topbar, .touchpad, .panel--actions, .panel--controls, .footer, button, a"
+    )
+  ) {
+    return;
+  }
 
+  sound.ensure();
   const { cellW } = boardCellSize();
 
   gesturePointer = event.pointerId;
@@ -734,7 +741,7 @@ function onGestureStart(event) {
   };
 
   try {
-    arena?.setPointerCapture?.(event.pointerId);
+    app?.setPointerCapture?.(event.pointerId);
   } catch {
     /* ignorera – svepen fungerar även utan pointer capture */
   }
@@ -755,7 +762,7 @@ function onGestureMove(event) {
   const downward = event.clientY - gesture.dropAnchorY;
 
   // Svep nedåt = hårddrop.
-  if (downward >= HARD_DROP_SWIPE && downward > Math.abs(dx)) {
+  if (downward >= HARD_DROP_SWIPE && downward > Math.abs(dx) * 0.85) {
     gesture.done = true;
     tryHardDrop();
     buzz(14);
@@ -763,7 +770,7 @@ function onGestureMove(event) {
   }
 
   // Ignorera små sidoförskjutningar mitt i ett brant lodrätt svep.
-  const verticalSwipe = Math.abs(downward) > 18 && Math.abs(downward) > Math.abs(dx) * 1.5;
+  const verticalSwipe = Math.abs(downward) > 16 && Math.abs(downward) > Math.abs(dx) * 1.4;
 
   // Vågrät svepning: flytta pjäsen ett steg per cellbredd.
   if (!verticalSwipe) {
@@ -778,11 +785,6 @@ function onGestureMove(event) {
       gesture.moved = true;
       gesture.movedX = true;
     }
-  }
-
-  // Följ med om fingret förs uppåt så ett efterföljande svep nedåt reagerar direkt.
-  if (event.clientY < gesture.dropAnchorY) {
-    gesture.dropAnchorY = event.clientY;
   }
 
   if (event.pointerType !== "mouse" && event.cancelable) event.preventDefault();
@@ -803,7 +805,7 @@ function onGestureEnd(event) {
   if (
     !finished.movedX &&
     totalDy >= SHORT_DROP_SWIPE &&
-    totalDy > Math.abs(totalDx) * 1.5 &&
+    totalDy > Math.abs(totalDx) * 1.3 &&
     duration <= SHORT_DROP_MAX_MS
   ) {
     tryHardDrop();
@@ -811,17 +813,21 @@ function onGestureEnd(event) {
     return;
   }
 
-  if (finished.moved || distance > TAP_MAX_DISTANCE || duration > TAP_MAX_MS) return;
+  if (finished.moved || finished.movedX || distance > TAP_MAX_DISTANCE || duration > TAP_MAX_MS) {
+    return;
+  }
 
   // Enkelt klick/tryck = rotera pjäsen.
   if (tryRotate(1)) buzz(9);
 }
 
+if (app) {
+  app.addEventListener("pointerdown", onGestureStart);
+  app.addEventListener("pointermove", onGestureMove);
+  app.addEventListener("pointerup", onGestureEnd);
+  app.addEventListener("pointercancel", cancelGesture);
+}
 if (arena) {
-  arena.addEventListener("pointerdown", onGestureStart);
-  arena.addEventListener("pointermove", onGestureMove);
-  arena.addEventListener("pointerup", onGestureEnd);
-  arena.addEventListener("pointercancel", cancelGesture);
   arena.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
