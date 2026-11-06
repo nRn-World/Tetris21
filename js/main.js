@@ -1,7 +1,7 @@
 import { TetrisEngine } from "./engine.js";
 import { Renderer } from "./renderer.js";
 import { Sound } from "./audio.js";
-import { ROWS, DAS, ARR, SOFT_DROP_INTERVAL, DANGER_ROWS } from "./config.js";
+import { COLS, ROWS, DAS, ARR, SOFT_DROP_INTERVAL, DANGER_ROWS } from "./config.js";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -23,6 +23,10 @@ const pauseBtn = $("#pauseBtn");
 const pauseTopBtn = $("#pauseTopBtn");
 const restartBtn = $("#restartBtn");
 const soundBtn = $("#soundBtn");
+const fullscreenBtn = $("#fullscreenBtn");
+const stage = $(".stage");
+const arena = $(".arena");
+const arenaHead = $(".arena-head");
 
 const finalScore = $("[data-final-score]");
 const finalLines = $("[data-final-lines]");
@@ -193,6 +197,8 @@ function updateDanger() {
 
 function syncState() {
   app.dataset.state = engine.state;
+  if (engine.state !== "playing") cancelGesture();
+  lastTap.time = 0;
 
   startScreen.hidden = engine.state !== "idle";
   pauseScreen.hidden = engine.state !== "paused";
@@ -241,6 +247,7 @@ function resetInput() {
   dasTimer = 0;
   arrTimer = 0;
   softTimer = 0;
+  cancelGesture();
 }
 
 function startGame() {
@@ -254,6 +261,7 @@ function startGame() {
   if (boardFrame) boardFrame.dataset.danger = "";
   app.dataset.combo = "0";
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  maybeAutoFullscreen();
 }
 
 function togglePause() {
@@ -264,6 +272,100 @@ function togglePause() {
     engine.resume();
   }
 }
+
+/* ---------- mobil: helskärm & spelplan som fyller skärmen ---------- */
+
+const mobileMedia = window.matchMedia("(max-width: 900px)");
+const coarsePointer = window.matchMedia("(pointer: coarse)");
+const canFullscreen = typeof document.documentElement.requestFullscreen === "function";
+
+let autoFullscreenTried = false;
+
+function fitMobileBoard() {
+  if (!mobileMedia.matches) {
+    app.style.removeProperty("--board-h");
+    return;
+  }
+  if (!stage || !arena || !arenaHead || !boardFrame) return;
+
+  const arenaRect = arena.getBoundingClientRect();
+  const headRect = arenaHead.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+  const gap = parseFloat(window.getComputedStyle(arena).rowGap) || 0;
+  const framePad =
+    parseFloat(window.getComputedStyle(boardFrame).getPropertyValue("--frame-pad")) || 9;
+
+  const availableHeight = arenaRect.height - headRect.height - gap - 2;
+  const availableWidth = stageRect.width - 2;
+  if (availableHeight < 80 || availableWidth < 80) return;
+
+  // Spelplanen är 1:2, så max höjd styrs även av bredden.
+  const maxByWidth = (availableWidth - framePad * 2) * 2;
+  const height = Math.max(150, Math.min(availableHeight, maxByWidth));
+  app.style.setProperty("--board-h", `${Math.round(height)}px`);
+}
+
+function scheduleFit() {
+  window.requestAnimationFrame(fitMobileBoard);
+}
+
+function isFullscreen() {
+  return Boolean(document.fullscreenElement);
+}
+
+function syncFullscreenButton() {
+  if (!fullscreenBtn) return;
+  const supported = canFullscreen && (mobileMedia.matches || coarsePointer.matches);
+  fullscreenBtn.hidden = !supported;
+  if (!supported) return;
+
+  const active = isFullscreen();
+  fullscreenBtn.classList.toggle("is-fullscreen", active);
+  fullscreenBtn.setAttribute("aria-pressed", String(active));
+  fullscreenBtn.setAttribute("aria-label", active ? "Lämna helskärm" : "Helskärm");
+  fullscreenBtn.title = active ? "Lämna helskärm" : "Helskärm";
+}
+
+async function enterFullscreen() {
+  if (!canFullscreen || isFullscreen()) return;
+  try {
+    await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+  } catch {
+    /* Vissa webbläsare (t.ex. iOS) tillåter inte helskärm – spelet fungerar ändå. */
+    return;
+  }
+}
+
+function exitFullscreen() {
+  if (!isFullscreen()) return;
+  document.exitFullscreen?.().catch(() => {});
+}
+
+function toggleFullscreen() {
+  if (isFullscreen()) exitFullscreen();
+  else enterFullscreen();
+}
+
+function maybeAutoFullscreen() {
+  if (autoFullscreenTried) return;
+  autoFullscreenTried = true;
+  if (!mobileMedia.matches || !coarsePointer.matches) return;
+  enterFullscreen();
+}
+
+mobileMedia.addEventListener?.("change", () => {
+  scheduleFit();
+  syncFullscreenButton();
+});
+window.addEventListener("resize", scheduleFit);
+window.addEventListener("orientationchange", () => window.setTimeout(scheduleFit, 160));
+window.visualViewport?.addEventListener("resize", scheduleFit);
+document.addEventListener("fullscreenchange", () => {
+  syncFullscreenButton();
+  scheduleFit();
+});
+
+fullscreenBtn?.addEventListener("click", toggleFullscreen);
 
 function tryMove(dir) {
   if (engine.state !== "playing") return false;
@@ -577,11 +679,147 @@ if (touchpad) {
   touchpad.addEventListener("contextmenu", (event) => event.preventDefault());
 }
 
+/* ---------- svepgester på spelplanen ---------- */
+
+const TAP_MAX_DISTANCE = 12; // px – räknas fortfarande som ett tryck
+const TAP_MAX_MS = 280;
+const DOUBLE_TAP_MS = 320;
+const DOUBLE_TAP_DISTANCE = 36;
+const HARD_DROP_SWIPE = 46; // px uppåt innan pjäsen släpps
+
+let gesturePointer = null;
+let gesture = null;
+let lastTap = { time: 0, x: 0, y: 0 };
+
+function buzz(pattern) {
+  if (typeof navigator.vibrate !== "function") return;
+  try {
+    navigator.vibrate(pattern);
+  } catch {
+    /* ignorera */
+  }
+}
+
+function boardCellSize() {
+  const rect = boardCanvas.getBoundingClientRect();
+  return {
+    cellW: rect.width > 0 ? rect.width / COLS : 28,
+    cellH: rect.height > 0 ? rect.height / ROWS : 28,
+  };
+}
+
+function cancelGesture() {
+  gesturePointer = null;
+  gesture = null;
+}
+
+function onGestureStart(event) {
+  if (event.pointerType === "mouse") return;
+  if (engine.state !== "playing") return;
+  if (gesturePointer !== null) return;
+  if (!(event.target instanceof Element)) return;
+  if (event.target.closest(".screen, button, a")) return;
+
+  const { cellW, cellH } = boardCellSize();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+
+  gesturePointer = event.pointerId;
+  gesture = {
+    startX: event.clientX,
+    startY: event.clientY,
+    anchorX: event.clientX,
+    anchorY: event.clientY,
+    startedAt: performance.now(),
+    startedLow: event.clientY > viewportHeight * 0.42,
+    stepW: Math.max(13, cellW * 0.6),
+    stepH: Math.max(11, cellH * 0.85),
+    done: false,
+  };
+
+  try {
+    arena?.setPointerCapture?.(event.pointerId);
+  } catch {
+    /* ignorera – svepen fungerar även utan pointer capture */
+  }
+  if (event.cancelable) event.preventDefault();
+}
+
+function onGestureMove(event) {
+  if (!gesture || event.pointerId !== gesturePointer) return;
+  if (gesture.done) return;
+
+  // Svep uppåt från skärmens nedre del = hårddrop.
+  const upward = gesture.startY - event.clientY;
+  if (gesture.startedLow && upward >= HARD_DROP_SWIPE) {
+    gesture.done = true;
+    tryHardDrop();
+    buzz(14);
+    return;
+  }
+
+  // Vågrät svepning: flytta pjäsen ett steg per cellbredd.
+  const stepsX = Math.trunc((event.clientX - gesture.anchorX) / gesture.stepW);
+  if (stepsX !== 0) {
+    const dir = stepsX > 0 ? 1 : -1;
+    for (let i = 0; i < Math.abs(stepsX); i += 1) {
+      if (!tryMove(dir)) break;
+    }
+    gesture.anchorX += stepsX * gesture.stepW;
+  }
+
+  // Lodrät svepning nedåt: mjukdrop, ett steg per cellhöjd.
+  const stepsY = Math.floor((event.clientY - gesture.anchorY) / gesture.stepH);
+  if (stepsY > 0) {
+    for (let i = 0; i < stepsY; i += 1) {
+      if (!engine.softDrop()) break;
+    }
+    gesture.anchorY += stepsY * gesture.stepH;
+  }
+
+  if (event.cancelable) event.preventDefault();
+}
+
+function onGestureEnd(event) {
+  if (event.pointerId !== gesturePointer) return;
+  const finished = gesture;
+  cancelGesture();
+  if (!finished || finished.done) return;
+
+  const duration = performance.now() - finished.startedAt;
+  const distance = Math.hypot(event.clientX - finished.startX, event.clientY - finished.startY);
+  if (distance > TAP_MAX_DISTANCE || duration > TAP_MAX_MS) return;
+
+  // Dubbeltryck = rotera pjäsen.
+  const now = performance.now();
+  const isDoubleTap =
+    now - lastTap.time <= DOUBLE_TAP_MS &&
+    Math.hypot(event.clientX - lastTap.x, event.clientY - lastTap.y) <= DOUBLE_TAP_DISTANCE;
+
+  if (isDoubleTap) {
+    lastTap.time = 0;
+    if (tryRotate(1)) buzz(9);
+  } else {
+    lastTap = { time: now, x: event.clientX, y: event.clientY };
+  }
+}
+
+if (arena) {
+  arena.addEventListener("pointerdown", onGestureStart);
+  arena.addEventListener("pointermove", onGestureMove);
+  arena.addEventListener("pointerup", onGestureEnd);
+  arena.addEventListener("pointercancel", onGestureEnd);
+  arena.addEventListener("contextmenu", (event) => event.preventDefault());
+}
+
 /* ---------- spelloop ---------- */
 
 renderSoundButton();
 renderHud(true);
 syncState();
+syncFullscreenButton();
+scheduleFit();
+window.setTimeout(scheduleFit, 260);
+window.addEventListener("load", scheduleFit);
 
 let lastTime = performance.now();
 

@@ -35,6 +35,10 @@
           <span class="record-label">REKORD</span>
           <strong data-best>0</strong>
         </div>
+        <button class="icon-btn icon-btn--mobile" id="fullscreenBtn" type="button" aria-pressed="false" aria-label="Helskärm" title="Helskärm">
+          <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></svg>
+          <svg class="icon-shrink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h3a2 2 0 0 0 2-2V3" /><path d="M21 8h-3a2 2 0 0 1-2-2V3" /><path d="M3 16h3a2 2 0 0 1 2 2v3" /><path d="M21 16h-3a2 2 0 0 0-2 2v3" /></svg>
+        </button>
         <button class="icon-btn icon-btn--mobile" id="pauseTopBtn" type="button" aria-pressed="false" aria-label="Pausa spelet" title="Pausa">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.6" height="14" rx="1.2" /><rect x="13.4" y="5" width="3.6" height="14" rx="1.2" /></svg>
         </button>
@@ -120,6 +124,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13" /><path d="m13 6 6 6-6 6" /></svg>
                 </button>
                 <p class="hero-hint">Tryck <kbd>Enter</kbd> eller klicka för att börja</p>
+                <p class="hero-hint hero-hint--touch">Svep för att flytta · dubbeltryck för att rotera</p>
                 <p class="start-best">REKORD <strong data-best>0</strong></p>
               </div>
             </div>
@@ -189,6 +194,19 @@
         </section>
       </aside>
     </main>
+
+    <section class="gesture-bar" aria-label="Svepgester">
+      <button class="touch-btn gesture-hold" data-touch="hold" type="button" aria-label="Håll pjäs">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="5.5" height="12" rx="1.6" /><rect x="14.5" y="6" width="5.5" height="12" rx="1.6" /></svg>
+        <span>HÅLL</span>
+      </button>
+      <p class="gesture-hint">
+        <span><b>↔ svep</b> flytta</span>
+        <span><b>⟳ dubbeltryck</b> rotera</span>
+        <span><b>↑ svep upp</b> släpp</span>
+        <span><b>↓ svep ner</b> mjukdrop</span>
+      </p>
+    </section>
 
     <section class="touchpad" aria-label="Touchkontroller">
       <button class="touch-btn touch-btn--hold" data-touch="hold" type="button" aria-label="Håll pjäs">

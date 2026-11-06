@@ -270,6 +270,17 @@ body {
   display: none;
 }
 
+.icon-btn[hidden] {
+  display: none;
+}
+
+/* Helskärm/paus-knappar även på pekskärmar som är bredare än 900 px */
+@media (pointer: coarse) {
+  .icon-btn--mobile {
+    display: grid;
+  }
+}
+
 /* ---------- stage ---------- */
 
 .stage {
@@ -294,6 +305,7 @@ body {
   align-items: center;
   justify-self: center;
   width: fit-content;
+  touch-action: none;
 }
 
 .board-frame {
@@ -952,6 +964,26 @@ kbd {
   display: none;
 }
 
+.gesture-bar {
+  display: none;
+}
+
+.hero-hint--touch {
+  display: none;
+}
+
+#fullscreenBtn .icon-shrink {
+  display: none;
+}
+
+#fullscreenBtn.is-fullscreen .icon-expand {
+  display: none;
+}
+
+#fullscreenBtn.is-fullscreen .icon-shrink {
+  display: block;
+}
+
 /* ---------- footer ---------- */
 
 .footer {
@@ -1023,13 +1055,39 @@ kbd {
     --board-h: min(52vh, 460px);
   }
 
+  html {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
-    align-items: flex-start;
-    padding: 14px 14px 20px;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 100vh;
+    min-height: 100dvh;
+    align-items: stretch;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
   }
 
   .app {
-    gap: 14px;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) calc(env(safe-area-inset-right, 0px) + 12px)
+      calc(env(safe-area-inset-bottom, 0px) + 8px) calc(env(safe-area-inset-left, 0px) + 12px);
+    gap: 8px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .topbar {
+    flex: none;
   }
 
   .brand-mark {
@@ -1057,11 +1115,27 @@ kbd {
   .stage {
     display: grid;
     grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       "hold next"
       "board board";
     gap: 9px;
     align-items: stretch;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .hero-hint {
+    display: none;
+  }
+
+  .hero-hint--touch {
+    display: block;
+  }
+
+  .screen {
+    touch-action: pan-y;
   }
 
   .rail {
@@ -1116,9 +1190,13 @@ kbd {
   .arena {
     grid-area: board;
     width: 100%;
+    height: 100%;
+    min-height: 0;
     gap: 8px;
     justify-self: stretch;
+    justify-content: center;
     align-items: center;
+    touch-action: none;
   }
 
   .arena-head {
@@ -1201,11 +1279,58 @@ kbd {
   }
 
   .touchpad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    width: min(420px, 100%);
-    margin: 0 auto;
+    display: none;
+  }
+
+  .gesture-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: none;
+    padding: 2px 2px 0;
+  }
+
+  .gesture-bar .gesture-hold {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: none;
+    width: 66px;
+    height: 40px;
+    padding: 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(23, 27, 40, 0.82), rgba(11, 14, 22, 0.72));
+    color: var(--muted);
+    font-family: var(--display);
+    font-size: 6.5px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+  }
+
+  .gesture-bar .gesture-hold svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .gesture-bar .gesture-hold span {
+    display: block;
+  }
+
+  .gesture-hint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px 12px;
+    margin: 0;
+    color: var(--muted-dim);
+    font-size: 8.5px;
+    line-height: 1.35;
+    letter-spacing: 0.03em;
+  }
+
+  .gesture-hint b {
+    color: var(--muted);
+    font-weight: 600;
   }
 
   .touch-btn {
@@ -1344,6 +1469,24 @@ kbd {
 
   .next-item {
     height: 52px;
+  }
+}
+
+/* Låg mobilskärm (t.ex. liggande telefonen) – låt spelplanen ta all plats */
+@media (max-width: 900px) and (max-height: 560px) and (orientation: landscape) {
+  .panel--hold,
+  .panel--next {
+    display: none;
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "board";
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .gesture-hint {
+    font-size: 8px;
   }
 }
 
