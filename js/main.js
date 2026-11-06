@@ -1,6 +1,6 @@
 import { TetrisEngine } from "./engine.js";
 import { Renderer } from "./renderer.js";
-import { Sound } from "./audio.js";
+import { Sound } from "./audio.js?v=5";
 import { COLS, ROWS, DAS, ARR, SOFT_DROP_INTERVAL, DANGER_ROWS } from "./config.js";
 
 const $ = (selector) => document.querySelector(selector);
@@ -297,7 +297,7 @@ function startGame() {
     if (infoModal) infoModal.hidden = true;
     infoBtn?.setAttribute("aria-expanded", "false");
   }
-  sound.ensure();
+  sound.unlock();
   resetInput();
   renderer.reset();
   engine.start();
@@ -499,6 +499,7 @@ function handleHeldInput(dtMs) {
     while (softTimer >= SOFT_DROP_INTERVAL) {
       softTimer -= SOFT_DROP_INTERVAL;
       if (!engine.softDrop()) break;
+      sound.softDrop();
     }
   } else {
     softTimer = 0;
@@ -584,7 +585,7 @@ window.addEventListener("keydown", (event) => {
       if (!event.repeat) {
         held.down = true;
         softTimer = 0;
-        engine.softDrop();
+        if (engine.softDrop()) sound.softDrop();
       }
       break;
     case "ArrowUp":
@@ -640,11 +641,20 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
-/* ---------- knappar ---------- */
+/* ---------- knappar & ljudupplåsning ---------- */
+
+const unlockAudio = () => sound.unlock();
+window.addEventListener("pointerup", unlockAudio, { passive: true });
+window.addEventListener("touchend", unlockAudio, { passive: true });
+window.addEventListener("click", unlockAudio, { passive: true });
+window.addEventListener("keydown", unlockAudio, { passive: true });
 
 startBtn.addEventListener("click", startGame);
 againBtn.addEventListener("click", startGame);
-resumeBtn.addEventListener("click", () => engine.resume());
+resumeBtn.addEventListener("click", () => {
+  sound.unlock();
+  engine.resume();
+});
 pauseBtn.addEventListener("click", togglePause);
 pauseTopBtn.addEventListener("click", togglePause);
 restartBtn.addEventListener("click", startGame);
@@ -665,7 +675,7 @@ if (holdPanel) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     if (engine.state !== "playing" || infoOpen) return;
     event.preventDefault();
-    sound.ensure();
+    sound.unlock();
     tryHold();
   });
 }
@@ -687,7 +697,7 @@ for (const button of $$(".touch-btn")) {
       held[action] = true;
       if (action === "down") {
         softTimer = 0;
-        engine.softDrop();
+        if (engine.softDrop()) sound.softDrop();
       }
       return;
     }
@@ -760,7 +770,7 @@ function onGestureStart(event) {
     return;
   }
 
-  sound.ensure();
+  sound.unlock();
   const { cellW } = boardCellSize();
 
   gesturePointer = event.pointerId;
